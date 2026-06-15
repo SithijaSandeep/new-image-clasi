@@ -10,11 +10,25 @@ st.set_page_config(page_title="Image Classifier", layout="centered")
 st.title("📸 Student Image Classification App")
 st.write("Upload an image to predict its class using the trained MobileNetV2 model.")
 
+# --- 1. Custom Fixed Lambda Layer එකක් හැදීම ---
+# Keras එකෙන් shape එක ඉල්ලන නිසා අපි වෙනමම class එකක් හදනවා output shape එක return කරන්න
+@tf.keras.utils.register_keras_serializable()
+class FixedLambda(tf.keras.layers.Layer):
+    def __init__(self, **kwargs):
+        super(FixedLambda, self).__init__(**kwargs)
+
+    def call(self, inputs):
+        return tf.cast(inputs, tf.float32)
+
+    def compute_output_shape(self, input_shape):
+        # Shape එක (None, 160, 160, 3) විදියට Keras එකට explicitly දෙනවා
+        return input_shape
+
 # 2. Load Model and Class Names
 @st.cache_resource # App එක reload වෙන හැම සැරේම model එක load නොවී memory එකේ තියාගන්න
 def load_my_model():
     model = tf.keras.models.load_model("student_mobilenetv2_transfer_learning.keras",
-                                       custom_objects={"Lambda": tf.keras.layers.Identity},
+                                      custom_objects={"Lambda": FixedLambda},
                                        safe_mode=False)
     with open("class_names.json", "r") as f:
         classes = json.load(f)
