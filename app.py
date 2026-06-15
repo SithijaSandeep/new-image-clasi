@@ -13,8 +13,9 @@ st.write("Upload an image to predict its class using the trained MobileNetV2 mod
 # 2. Load Model and Class Names
 @st.cache_resource # App එක reload වෙන හැම සැරේම model එක load නොවී memory එකේ තියාගන්න
 def load_my_model():
-    model = tf.keras.models.load_model("student_mobilenetv2_transfer_learning.keras"
-                                       ,safe_mode=False)
+    model = tf.keras.models.load_model("student_mobilenetv2_transfer_learning.keras",
+                                       custom_objects={"Lambda": tf.keras.layers.Identity},
+                                       safe_mode=False)
     with open("class_names.json", "r") as f:
         classes = json.load(f)
     return model, classes
