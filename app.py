@@ -5,69 +5,53 @@ import json
 from PIL import Image
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 
-# 1. Page Configuration
-st.set_page_config(page_title="Image Classifier", layout="centered")
-st.title("📸 Student Image Classification App")
+# 1. Page Configuration (App UI Setup)
+st.set_page_config(page_title="Student Image Classifier", page_icon="📸", layout="centered")
+st.title("📸 Image Classification App")
 st.write("Upload an image to predict its class using the trained MobileNetV2 model.")
 
-# --- 1. Custom Fixed Lambda Layer එකක් හැදීම ---
-# Keras එකෙන් shape එක ඉල්ලන නිසා අපි වෙනමම class එකක් හදනවා output shape එක return කරන්න
-@tf.keras.utils.register_keras_serializable()
-class FixedLambda(tf.keras.layers.Layer):
-    def __init__(self, **kwargs):
-        super(FixedLambda, self).__init__(**kwargs)
-
-    def call(self, inputs):
-        return tf.cast(inputs, tf.float32)
-
-    def compute_output_shape(self, input_shape):
-        # Shape එක (None, 160, 160, 3) විදියට Keras එකට explicitly දෙනවා
-        return input_shape
-
 # 2. Load Model and Class Names
-@st.cache_resource # App එක reload වෙන හැම සැරේම model එක load නොවී memory එකේ තියාගන්න
+@st.cache_resource  # App eka run vena hemavitema ආයෙ ආයෙ model eka load vena eka valakvanna
 def load_my_model():
-    model = tf.keras.models.load_model("student_mobilenetv2_transfer_learning.keras",
-                                      custom_objects={"Lambda": FixedLambda},
-                                       safe_mode=False)
+    # Ara clean training eka nisa kisima custom_objects / safe_mode mukuth ona ne!
+    model = tf.keras.models.load_model("student_mobilenetv2_transfer_learning.keras")
     with open("class_names.json", "r") as f:
         classes = json.load(f)
     return model, classes
 
 try:
     model, class_names = load_my_model()
-    st.success("Model loaded successfully!")
+    st.success("Model and Class names loaded successfully!")
 except Exception as e:
-    st.error(f"Error loading model: {e}")
+    st.error(f"Error loading model or files: {e}")
 
-# 3. Image Upload Layer
+# 3. Image Upload Section
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
-    # Display uploaded image
+    # Image eka open කර RGB format ekata haravima
     image = Image.open(uploaded_file).convert('RGB')
     st.image(image, caption='Uploaded Image', use_container_width=True)
     
     st.write("👁️ Predicting...")
     
-    # 4. Preprocessing (Oyage training code එකේ විදියටම)
-    # Image එක MobileNetV2 එකට ඕන 160x160 size එකට resize කිරීම
-    img_resized = image.resize((160, 160))
+    # 4. Preprocessing (Training code eke vidiyatama)
+    img_resized = image.resize((160, 160)) # Model input size = 160x160
     img_array = tf.keras.preprocessing.image.img_to_array(img_resized)
-    img_array = tf.expand_dims(img_array, 0) # Batch dimension එක එකතු කිරීම (1, 160, 160, 3)
+    img_array = tf.expand_dims(img_array, 0) # Batch dimension eka ekathu kirima (1, 160, 160, 3)
     
-    # Cast and Preprocess
-    img_array = tf.cast(img_array, tf.float32)
+    # Preprocess_input (MobileNetV2 eka expect karana range ekata values hadima)
     img_array = preprocess_input(img_array)
     
     # 5. Model Prediction
     predictions = model.predict(img_array)
-    score = tf.nn.softmax(predictions[0]) # Softmax output
     
-    predicted_class = class_names[np.argmax(predictions)]
-    confidence = 100 * np.max(predictions) # Categorical crossentropy + Softmax නිසා kelinma probability ගන්න පුළුවන්
+    # Categorical Crossentropy + Softmax thiyena nisa predictions[0] eke thiyenne probability values
+    predicted_index = np.argmax(predictions[0])
+    predicted_class = class_names[predicted_index]
+    confidence = predictions[0][predicted_index] * 100
     
-    # 6. Show Results
-    st.subheader(f"Prediction: **{predicted_class}**")
+    # 6. Show Results to User
+    st.markdown(f"### Prediction: **{predicted_class}**")
     st.progress(int(confidence))
-    st.write(f"Confidence: **{confidence:.2f}%**")
+    st.write(f"Confidence Level: **{confidence:.2f}%**")
